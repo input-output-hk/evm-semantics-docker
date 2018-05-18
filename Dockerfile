@@ -1,4 +1,4 @@
-FROM ubuntu:xenial
+FROM ubuntu:xenial as builder
 
 # https://github.com/kframework/evm-semantics/
 
@@ -23,6 +23,21 @@ RUN env
 RUN make deps
 RUN make
 
+FROM ubuntu:xenial
+
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update
+RUN apt-get install -y libmpfr4 libgmp10 zlib1g
+
+RUN adduser --disabled-password --gecos '' kevm
+
+USER kevm
+WORKDIR /home/kevm
+ENV USER kevm
+
+WORKDIR evm-semantics
+
 ARG KEVM_PORT
 ENV KEVM_PORT ${KEVM_PORT:-8888}
 
@@ -31,5 +46,8 @@ ENV KEVM_HOST ${KEVM_HOST:-0.0.0.0}
 
 ARG KEVM_DEBUG
 ENV KEVM_DEBUG ${KEVM_DEBUG:-}
+
+COPY --from=builder /home/kevm/evm-semantics/.build/vm/kevm-vm ./.build/vm/kevm-vm
+COPY --from=builder /home/kevm/evm-semantics/.build/local/lib ./.build/local/lib
 
 CMD LD_LIBRARY_PATH=./.build/local/lib ./.build/vm/kevm-vm $KEVM_PORT $KEVM_HOST $KEVM_DEBUG
